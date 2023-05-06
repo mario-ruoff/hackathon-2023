@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.beep_me">
+    package="com.einsteam.beep_me">
    <application
-        android:label="beep_me"
+        android:label="Beep Me"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
