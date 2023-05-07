@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,8 +34,10 @@ class MainPage extends StatefulWidget {
 }
 
 class MainPageState extends State<MainPage> {
-  final _cameraFrequency = 0.2;
-  final endpointUrl = 'https://lololololololol.free.beeceptor.com';
+  final _debugMode = true;
+  final _testMode = true;
+  final _cameraFrequency = 2;
+  final _endpointUrl = 'https://lololololololol.free.beeceptor.com';
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -71,47 +74,59 @@ class MainPageState extends State<MainPage> {
       }
 
       // Take a picture and encode it to base64
+      String base64Image = "";
       try {
         final imageFile = await _controller.takePicture();
         final imageBytes = await imageFile.readAsBytes();
         final base64Image = base64Encode(imageBytes);
-
-        // Define the headers and body for the HTTP request
-        final headers = {'Content-Type': 'application/json'};
-        final body = jsonEncode({'image': base64Image});
-
-        // Send the HTTP request to the endpoint
-        print("Posting to endpoint with body length " +
-            base64Image.length.toString());
-        final response = await http.post(Uri.parse(endpointUrl),
-            headers: headers, body: body);
-
-        // Print the HTTP response status code and body for debugging
-        // print('HTTP response: ${response.statusCode} ${response.body}');
-
-        // Parse the HTTP response body as an integer
-        final responseBody = jsonDecode(response.body);
-        double responseNumber = responseBody['beepFrequency'].toDouble();
-
-        if (responseNumber != _beepFrequency) {
-          _beepFrequency = responseNumber;
-          _beepTimer.cancel();
-          if (responseNumber != 0) {
-            startBeeping();
-            print("Changing beeping to " + responseNumber.toString());
-          } else {
-            print("Stopping beeping");
-          }
-        }
       } catch (e) {
         // If camera capture still in progress, do nothing
         print(e);
       }
+
+      // Define the headers and body for the HTTP request
+      final headers = {'Content-Type': 'application/json'};
+      final body = jsonEncode({'image': base64Image});
+
+      // Get message from endpoint or test response
+      String responseBody = "";
+      if (!_testMode) {
+        // Send the HTTP request to the endpoint
+        print("Posting to endpoint with body length " +
+            base64Image.length.toString());
+        final response = await http.post(Uri.parse(_endpointUrl),
+            headers: headers, body: body);
+        // Print the HTTP response status code and body for debugging
+        // print('HTTP response: ${response.statusCode} ${response.body}');
+        responseBody = response.body;
+      } else {
+        // Simulate a response for test purposes
+        responseBody = '{"beepFrequency": ${max(0, timer.tick - 10)}}';
+        print(responseBody);
+      }
+
+      // Parse the HTTP response body as an integer
+      final responseBodyDecoded = jsonDecode(responseBody);
+      double responseNumber = responseBodyDecoded['beepFrequency'].toDouble();
+
+      if (responseNumber == 0) {
+        startWhiteNoise();
+      } else if (responseNumber != _beepFrequency) {
+        _beepTimer.cancel();
+        _audioPlayer.stop();
+        startBeeping();
+        print("Changing beeping to " + responseNumber.toString());
+      }
+      _beepFrequency = responseNumber;
     });
   }
 
   // Start beeping with a frequency defined by the endpoint
   void startBeeping() {
+    // Stop if the beep frequency is 0
+    if (_beepFrequency == 0) {
+      return;
+    }
     // Start sending camera images x times per second
     _beepTimer = Timer.periodic(
         Duration(milliseconds: (1000 ~/ _beepFrequency)), (timer) async {
@@ -121,23 +136,54 @@ class MainPageState extends State<MainPage> {
     });
   }
 
+  // Start playing white noise when beep frequency is 0
+  void startWhiteNoise() {
+    print("Starting white noise");
+    _audioPlayer.setVolume(0.5);
+    _audioPlayer.play(AssetSource('01-White-Noise-10min.mp3'));
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('Beep Me')),
-        body: FutureBuilder<void>(
-          future: _initializeControllerFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              // If the Future is complete, display the camera preview
-              return CameraPreview(_controller);
-            } else {
-              // Otherwise, display a loading indicator
-              return const Center(child: CircularProgressIndicator());
-            }
-          },
-        ),
+        backgroundColor: Colors.black,
+        appBar: _debugMode ? AppBar(title: const Text('Beep Me')) : null,
+        body: _debugMode
+            ? FutureBuilder<void>(
+                future: _initializeControllerFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    // If the Future is complete, display the camera preview
+                    return CameraPreview(_controller);
+                  } else {
+                    // Otherwise, display a loading indicator
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                },
+              )
+            : Stack(
+                children: [
+                  Container(),
+                  // Position the message container in the top right corner
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Beep me is running!',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
