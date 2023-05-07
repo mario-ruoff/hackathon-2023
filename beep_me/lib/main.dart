@@ -78,7 +78,7 @@ class MainPageState extends State<MainPage> {
       try {
         final imageFile = await _controller.takePicture();
         final imageBytes = await imageFile.readAsBytes();
-        final base64Image = base64Encode(imageBytes);
+        base64Image = base64Encode(imageBytes);
       } catch (e) {
         // If camera capture still in progress, do nothing
         print(e);
