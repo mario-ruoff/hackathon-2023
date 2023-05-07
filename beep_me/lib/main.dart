@@ -36,7 +36,7 @@ class MainPage extends StatefulWidget {
 class MainPageState extends State<MainPage> {
   final _debugMode = true;
   final _testMode = true;
-  final _cameraFrequency = 2;
+  final _cameraFrequency = 1;
   final _endpointUrl = 'https://lololololololol.free.beeceptor.com';
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
@@ -101,7 +101,38 @@ class MainPageState extends State<MainPage> {
         responseBody = response.body;
       } else {
         // Simulate a response for test purposes
-        responseBody = '{"beepFrequency": ${max(0, timer.tick - 10)}}';
+        final frequencies = [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          2,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10
+        ];
+        responseBody = (timer.tick >= frequencies.length)
+            ? '{"beepFrequency": 10}'
+            : '{"beepFrequency": ${frequencies[timer.tick]}}';
         print(responseBody);
       }
 
@@ -110,19 +141,21 @@ class MainPageState extends State<MainPage> {
       double responseNumber = responseBodyDecoded['beepFrequency'].toDouble();
 
       if (responseNumber == 0) {
+        _beepFrequency = responseNumber;
         startWhiteNoise();
       } else if (responseNumber != _beepFrequency) {
+        _beepFrequency = responseNumber;
         _beepTimer.cancel();
         _audioPlayer.stop();
         startBeeping();
         print("Changing beeping to " + responseNumber.toString());
       }
-      _beepFrequency = responseNumber;
     });
   }
 
   // Start beeping with a frequency defined by the endpoint
   void startBeeping() {
+    print("BEEEP FREQUENCY: " + _beepFrequency.toString());
     // Stop if the beep frequency is 0
     if (_beepFrequency == 0) {
       return;
